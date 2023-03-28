@@ -10,8 +10,8 @@ registers_input = [[0], [0], [0], [0], [0], [2301, 22, 16, 101, 102, 0, 0x5555, 
 registers_holding = [[0], [1], [5600, 6000, 1], [6500], [6501], [2301, 101, 102, 4500, 4500, 560, 112], [2301, 101, 102, 4500, 4500, 560, 112]]
 
 ServerSideSocket = socket.socket()
-host = '127.0.0.1'
-port = 502
+host = '0.0.0.0'
+port = 5020
 ThreadCount = 0
 try:
     ServerSideSocket.bind((host, port))
