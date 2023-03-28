@@ -43,11 +43,11 @@ def multi_threaded_client(connection):
         offs = (data[2] << 8) | data[3]
         nreg = (data[4] << 8) | data[5]
 
-        if cmd==4: #Read input registers
+        if cmd == 4:    # Read input registers
             txbytes = bytes([id, cmd, nreg*2])
             # add the data to the package
             n=0
-            while(n<nreg):
+            while n < nreg:
                 bytes_val = registers_input[id][n+offs].to_bytes(2, 'big')
                 txbytes = txbytes + bytes_val[0].to_bytes(1,'big') + bytes_val[1].to_bytes(1,'big')
                 n=n+1
@@ -56,11 +56,11 @@ def multi_threaded_client(connection):
             txbytes = txbytes + crc[0].to_bytes(1,'big')+crc[1].to_bytes(1,'big')
             print(txbytes)
             connection.send(txbytes)
-        if cmd==3: #Read holding registers
+        if cmd == 3:  # Read holding registers
             txbytes = bytes([id, cmd, nreg * 2])
             # add the data to the package
             n = 0
-            while (n < nreg):
+            while n < nreg:
                 bytes_val = registers_holding[id][n+offs].to_bytes(2, 'big')
                 txbytes = txbytes + bytes_val[0].to_bytes(1, 'big') + bytes_val[1].to_bytes(1, 'big')
                 n = n + 1
@@ -69,8 +69,23 @@ def multi_threaded_client(connection):
             txbytes = txbytes + crc[0].to_bytes(1, 'big') + crc[1].to_bytes(1, 'big')
             print(txbytes)
             connection.send(txbytes)
+        if cmd == 6:  # Preset single register
+            val = (data[4] << 8) | data[5]
+            registers_holding[id][offs] = val
+            print(data)
+            connection.send(data)
+        if cmd == 10:  # Preset multiple registers
+            n = 0
+            while (n < nreg):
+                val = (data[7+(n*2)] << 8) | data[8+(n*2)]
+                registers_holding[id][offs+n] = val
+                n = n + 1
+            txbytes = bytes([id, cmd, data[2], data[3], data[4], data[5]])
+            crc = modbus_crc16(txbytes)
+            txbytes = txbytes + crc[0].to_bytes(1, 'big') + crc[1].to_bytes(1, 'big')
+            print(data)
+            connection.send(data)
 
-        #connection.sendall(str.encode(response))
     print("Closing client")
     connection.close()
 
