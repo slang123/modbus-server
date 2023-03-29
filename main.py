@@ -10,8 +10,8 @@ registers_input = [[0], [0], [0], [0], [0], [2301, 22, 16, 101, 102, 0, 0x5555, 
 registers_holding = [[0], [1], [5600, 6000, 1], [6500], [6501], [2301, 101, 102, 4500, 4500, 560, 112], [2301, 101, 102, 4500, 4500, 560, 112]]
 
 ServerSideSocket = socket.socket()
-host = '0.0.0.0'
-port = 5020
+host = '127.0.0.1'
+port = 502
 ThreadCount = 0
 try:
     ServerSideSocket.bind((host, port))
@@ -74,17 +74,18 @@ def multi_threaded_client(connection):
             registers_holding[id][offs] = val
             print(data)
             connection.send(data)
-        if cmd == 10:  # Preset multiple registers
+        if cmd == 16:  # Preset multiple registers
             n = 0
             while (n < nreg):
                 val = (data[7+(n*2)] << 8) | data[8+(n*2)]
                 registers_holding[id][offs+n] = val
+                print("Addr", 40001 + offs+n, " Val", val)
                 n = n + 1
             txbytes = bytes([id, cmd, data[2], data[3], data[4], data[5]])
             crc = modbus_crc16(txbytes)
             txbytes = txbytes + crc[0].to_bytes(1, 'big') + crc[1].to_bytes(1, 'big')
-            print(data)
-            connection.send(data)
+            print(txbytes)
+            connection.send(txbytes)
 
     print("Closing client")
     connection.close()
