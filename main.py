@@ -6,12 +6,12 @@ import os
 from _thread import *
 
 
-registers_input = [[0], [0], [0], [0], [0], [2301, 22, 16, 101, 102, 0, 0x5555, 0x6666, 4812], [2301, 22, 16, 101, 102, 0, 0x5555, 0x6666, 4812]]
-registers_holding = [[0], [1], [5600, 6000, 1], [6500], [6501], [2301, 101, 102, 4500, 4500, 560, 112], [2301, 101, 102, 4500, 4500, 560, 112]]
+registers_input = [[0], [0], [0], [0], [0], [2301, 22, 16, 101, 102, 0, 0x5555, 0x6666, 4812], [2321, 25, 11, 120, 122, 0, 0x5555, 0x6666, 4802]]
+registers_holding = [[0], [1], [5600, 6000, 1], [6500], [6501], [2301, 101, 102, 4500, 4500, 560, 112, 34, 11], [2301, 101, 102, 4500, 4500, 560, 112, 23, 23]]
 
 ServerSideSocket = socket.socket()
-host = '127.0.0.1'
-port = 502
+host = '0.0.0.0'
+port = 5020
 ThreadCount = 0
 try:
     ServerSideSocket.bind((host, port))
@@ -43,38 +43,68 @@ def multi_threaded_client(connection):
         offs = (data[2] << 8) | data[3]
         nreg = (data[4] << 8) | data[5]
 
+        if id==7 :
+            txbytes = bytes([0, 0, 40 ,77 ,11, 4])
+            print("Returning error bytes:", txbytes)
+            connection.send(txbytes)
+            continue
+        if id==8 :
+            txbytes = bytes([0, 0, 11 ,77 ,11, 4, 7, 1, 2, 3, 255, 255])
+            print("Returning error bytes:", txbytes)
+            connection.send(txbytes)
+            continue
         if cmd == 4:    # Read input registers
-            txbytes = bytes([id, cmd, nreg*2])
-            # add the data to the package
-            n=0
-            while n < nreg:
-                bytes_val = registers_input[id][n+offs].to_bytes(2, 'big')
-                txbytes = txbytes + bytes_val[0].to_bytes(1,'big') + bytes_val[1].to_bytes(1,'big')
-                n=n+1
-            # Add crc to bytes
-            crc = modbus_crc16(txbytes)
-            txbytes = txbytes + crc[0].to_bytes(1,'big')+crc[1].to_bytes(1,'big')
-            print(txbytes)
-            connection.send(txbytes)
+            print('Read input registers', id, offs, nreg)
+            # Check if we have valid registers to read
+            if (offs + nreg) > len(registers_input[id]):
+                txbytes = bytes([id, cmd+0x80, 0x02])
+                crc = modbus_crc16(txbytes)
+                txbytes = txbytes + crc[0].to_bytes(1,'big')+crc[1].to_bytes(1,'big')
+                print(txbytes)
+                connection.send(txbytes)
+            else:
+                txbytes = bytes([id, cmd, nreg*2])
+                # add the data to the package
+                n=0
+                while n < nreg:
+                    bytes_val = registers_input[id][n+offs].to_bytes(2, 'big')
+                    txbytes = txbytes + bytes_val[0].to_bytes(1,'big') + bytes_val[1].to_bytes(1,'big')
+                    n=n+1
+                # Add crc to bytes
+                crc = modbus_crc16(txbytes)
+                txbytes = txbytes + crc[0].to_bytes(1,'big')+crc[1].to_bytes(1,'big')
+                print(txbytes)
+                connection.send(txbytes)
         if cmd == 3:  # Read holding registers
-            txbytes = bytes([id, cmd, nreg * 2])
-            # add the data to the package
-            n = 0
-            while n < nreg:
-                bytes_val = registers_holding[id][n+offs].to_bytes(2, 'big')
-                txbytes = txbytes + bytes_val[0].to_bytes(1, 'big') + bytes_val[1].to_bytes(1, 'big')
-                n = n + 1
-            # Add crc to bytes
-            crc = modbus_crc16(txbytes)
-            txbytes = txbytes + crc[0].to_bytes(1, 'big') + crc[1].to_bytes(1, 'big')
-            print(txbytes)
-            connection.send(txbytes)
+            print('Read holding registers', id, cmd, offs, nreg)
+            # Check if we have valid registers to read
+            if (offs + nreg) > len(registers_holding[id]):
+                txbytes = bytes([id, cmd+0x80, 0x02])
+                crc = modbus_crc16(txbytes)
+                txbytes = txbytes + crc[0].to_bytes(1,'big')+crc[1].to_bytes(1,'big')
+                print(txbytes)
+                connection.send(txbytes)
+            else:
+                txbytes = bytes([id, cmd, nreg * 2])
+                # add the data to the package
+                n = 0
+                while n < nreg:
+                    bytes_val = registers_holding[id][n+offs].to_bytes(2, 'big')
+                    txbytes = txbytes + bytes_val[0].to_bytes(1, 'big') + bytes_val[1].to_bytes(1, 'big')
+                    n = n + 1
+                # Add crc to bytes
+                crc = modbus_crc16(txbytes)
+                txbytes = txbytes + crc[0].to_bytes(1, 'big') + crc[1].to_bytes(1, 'big')
+                print(txbytes)
+                connection.send(txbytes)
         if cmd == 6:  # Preset single register
+            print('Preset single register', id, cmd, offs, nreg)
             val = (data[4] << 8) | data[5]
             registers_holding[id][offs] = val
             print(data)
             connection.send(data)
         if cmd == 16:  # Preset multiple registers
+            print('Preset multiple registers', id, cmd, offs, nreg)
             n = 0
             while (n < nreg):
                 val = (data[7+(n*2)] << 8) | data[8+(n*2)]
@@ -93,12 +123,17 @@ def multi_threaded_client(connection):
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     print("Starting modbusRTU TCP server")
+
+    print("Testing string")
+    modbusid = 5
+    data = str(modbusid) + ",3,4,5,6,7"
+    print(data)
+
     while True:
         Client, address = ServerSideSocket.accept()
         print('Connected to: ' + address[0] + ':' + str(address[1]))
         start_new_thread(multi_threaded_client, (Client,))
         ThreadCount += 1
         print('Thread Number: ' + str(ThreadCount))
-    print("Closing socket server")
-    ServerSideSocket.close()
-
+print("Closing socket server")
+ServerSideSocket.close()
